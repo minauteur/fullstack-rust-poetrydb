@@ -8,7 +8,7 @@ use std::io::{BufReader, BufWriter, Read, Write, BufRead};
 extern crate serde_json;
 mod db;
 mod gen;
-const db_path: &'static str = &"C:\\Users\\Minauteur\\Desktop\\poems.db";
+const db_path: &'static str = &"~/";
 use serde::*;
 use reqwest::{Client, ClientBuilder};
 use std::path::PathBuf;
