@@ -1,0 +1,239 @@
+
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+    <head>
+
+        <meta charset="utf-8">
+        <title>Poem Generation</title>
+        <style>
+        .poem {
+            background-color: lightslategray;
+            border-radius: 20px;
+            padding: 5px;
+            margin:10px;
+        }
+        poem.h2:checked {
+
+        }
+        div {
+            animation: "expand" 2ms ease-in;
+        }
+                  
+            @keyframes expand {
+                0% {
+
+                }
+                100%{
+
+                }
+            }
+        
+        </style>
+    </head>
+    <body>
+        <!-- <form name="searchForm" id="search-form" action="" method="post"> -->
+            <label>Search for Poems</label></br>
+        <span>author:</span>
+        <input id="author" class="formInputs" label="by author" type="text"
+                placeholder="e.g. William Shakespeare"></br>
+        <span>title:</span>
+        <input id="title" class="formInputs" type="text" placeholder="e.g. Sonnet 112"></br>
+        
+        <span>lines:</span>
+        <input id="lines" class="formInputs" type="text" placeholder="e.g. fairest season"></br>
+        <input id="any" class="formInputs" type="checkbox"><span>checked: OR/ANY(inclusive)/unchecked:
+            AND/ONLY(exclusive)</span><br>
+        <input id="gen-name" class="formInputs" type="checkbox">
+        <button id="search" onclick="search()">Search</button>&nbsp;<button id="generate" onclick="generate()">Generate</button></br>
+        <!-- </form> -->
+        <div id="results"></div>
+        <!--[if lt IE 7]>
+            <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
+        <![endif]-->
+        
+        <script>
+        
+        function search() {
+        if ( document.contains(document.getElementById("generated")) ) {
+            
+            
+                document.getElementById("generated").remove();
+        }
+        
+        var inputs = document.getElementsByClassName('formInputs');
+        var queryArgs = {};
+        let bool = document.getElementById('any').checked ? true:false;
+        queryArgs.any = bool;
+        queryArgs.authors = inputs[0].value;
+        queryArgs.titles = inputs[1].value;
+        queryArgs.lines = inputs[2].value;
+
+        // var text = form.elements["author"].value;
+        // console.log("hi from submit()");
+        let split_vals = [];
+            for (tag in queryArgs) {
+                if (tag === "any") {
+                    queryArgs[tag] = queryArgs.any;
+                    continue
+                }
+                let unit = [];
+                let t = queryArgs[tag].split(',');
+                // values[x] = t.split(',');
+                t.forEach((s)=>{unit.push(s.trim())});
+                queryArgs[tag] = unit;
+            }
+            let q_string = JSON.stringify(queryArgs);
+        console.log("values: "+ JSON.stringify(queryArgs));
+        let xml = new XMLHttpRequest();
+        let url = "http://127.0.0.1:3000/search";
+        xml.open("POST", url);
+        xml.onload = function () {
+        // Request finished. Do processing here.      
+        console.log("response text:"+ xml.responseText);
+        let j = JSON.parse(xml.responseText);
+        let n =  document.getElementById('results');
+        // n.removeChild(generated);
+        let child_num = n.childNodes.length;
+        console.log("CHILDREN ON NODE: "+child_num);
+            // let p = document.createElement('p');
+            // p.innerHTML = j;
+            for (i in j) {
+                let poem = j[i];
+                let index = JSON.parse(i)+JSON.parse(child_num);
+                let c_string = "poem-"+index;
+                let div = document.createElement("div");
+                div.id = c_string;
+                div.classList = "poem";
+                console.log(div.id);
+
+                n.appendChild(div);
+                let n_child = document.getElementById(c_string);
+                let c_b = document.createElement("input");
+                c_b.type = "checkbox"
+                c_b.id = "cb-"+index;
+                let br = document.createElement("br");
+                let t = document.createElement("h2");
+                console.log("poem"+JSON.stringify(poem, 2));
+                t.textContent = poem["title"];
+                t.classList = "poem-title";
+                let a = document.createElement("h4");
+                a.classList = "poem-author";
+                a.textContent = poem["author"];
+                let l = document.createElement("p");
+                l.classList = "poem-lines"
+                console.log("poem[lines] is of type: "+typeof poem["lines"]);
+                let str = JSON.stringify(poem["lines"]);
+                let lines = poem["lines"];
+                // str.replace(",", "</br>");
+                console.log(poem["lines"]);
+                let line_vec = [];
+                for (line in lines) {
+                    line_vec.push(lines[line]);
+                }
+                let str_2 = line_vec.join("<br>");
+                
+                l.innerHTML = str_2;
+                n_child.appendChild(t);
+                n_child.appendChild(br);
+                n_child.appendChild(a);
+                n_child.appendChild(br);
+                n_child.appendChild(l);
+                n_child.appendChild(br);
+                
+            }
+            // p.textContent = JSON.stringify(j, 2);
+            // n.appendChild(p);
+
+        };
+        // xml.setRequestHeader("Origin", "http://127.0.0.1/")
+        xml.setRequestHeader("Content-Type", "text/plain");
+        xml.setRequestHeader("Accept", "text/html, application/json");
+        xml.responseType = "text";
+        // console.log("response text pre:"+ xml.responseText);
+        // xml.setRequestHeader("Access-Control-Allow-Origin", "*");
+        // xml.setRequestHeader("Access-Control-Request-Headers", "Content-Type, Accept")
+        xml.send(q_string);
+
+        };
+        String.prototype.trim = function()
+        {
+        return this.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+        };
+        function generate() {
+            let poems = document.getElementsByClassName('poem');
+            let len = poems.length;
+            console.log("number of items returned by 'poem' classList selection: "+ len);
+            let poem_vec = [];
+            for (number in poems){
+                let poem_obj = {};
+                let p_div = poems[number];
+                let c_nodes = p_div.childNodes;
+                if (c_nodes) {
+                let t = c_nodes[0].textContent;
+                let a = c_nodes[1].textContent;
+                let ls = c_nodes[2].innerHTML;
+                let l_string = JSON.stringify(ls);
+                let replaced = br2nl(l_string);
+                let split = replaced.split("\n");
+                let lc = split.length;
+                poem_obj.title = t;
+                poem_obj.author = a;
+                poem_obj.lines = replaced.split("\n");
+                poem_obj.linecount = JSON.stringify(lc);
+                // let line_value = lines.textContent;
+                console.log("current poem object: \n"+ JSON.stringify(poem_obj)+"\n");
+                poem_vec.push(poem_obj);
+                }
+                
+
+            }
+            let url = "http://127.0.0.1:3000/generate";
+            let xhr = new XMLHttpRequest();
+            xhr.open("POST", url);
+            xhr.onload = function() {
+            let new_poem = JSON.parse(xhr.responseText);
+            console.log("new title: "+new_poem["title"]+"\n");
+            console.log("new author: "+ new_poem["author"]+"\n");
+            console.log("new lines: "+new_poem["lines"]+"\n");
+                        let result = document.getElementById("results");
+                        let div = document.createElement("div");
+                        div.id = "generated";
+                        div.classList = "new-poem";
+                        let t = document.createElement("h2");
+                        let a = document.createElement("h4");
+                        let ls = document.createElement("p");
+                        t.textContent = new_poem["title"];
+                        a.textContent = new_poem["author"];
+                        let n_p_lines = new_poem["lines"].join("<br>");
+                        ls.innerHTML = n_p_lines;
+                        while (result.firstChild) {
+                                    result.removeChild(result.firstChild);
+                        }
+                        result.appendChild(div);
+                        let d = document.getElementById("generated");
+                        d.appendChild(t);
+                        d.appendChild(a);
+                        d.appendChild(ls);
+
+            }
+            let res_obj = {};
+            res_obj.gen_name = true;
+            res_obj.len = 20;
+            res_obj.seed_poems = poem_vec;
+            let response = JSON.stringify(res_obj);
+            xhr.setRequestHeader("Content-Type", "text/plain");
+            xhr.setRequestHeader("Accept", "text/html, application/json");
+            xhr.responseType = "text";
+            xhr.send(response);
+
+        }
+        function br2nl(str) {
+            return str.replace(/<br\s*\/?>/mg,"\n"); 
+        }
+        </script>
+    <!-- <script type="text/javascript" src="utils.js"></script> -->
+
+    </body>
+</html>

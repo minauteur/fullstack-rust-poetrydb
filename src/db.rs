@@ -4,6 +4,13 @@ use std::path::{Path, PathBuf};
 use rusqlite::*;
 use serde::{Serialize, Deserialize};
 use std::iter::FromIterator;
+// use poetrydb_scraper::QueryOptsAndArgs;
+
+const ORIGINAL_IDS: &'static i32 = &3057;
+pub struct QueryOptsAndArgs {
+    pub any: bool,
+    pub args: Vec<PoemQueryArgs>,
+}
 #[derive(Debug, Clone)]
 pub struct SQLPoem {
     pub id: i32,
@@ -13,33 +20,33 @@ pub struct SQLPoem {
     pub linecount: i32,
     pub created_at: Timespec,
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Poem {
     pub title: String,
     pub author: String,
     pub lines: Vec<String>,
     pub linecount: String,
 }
-impl Into<SQLPoem> for Poem {
-    fn into(self: Self)->SQLPoem {
+impl From<Poem> for SQLPoem {
+    fn from(p: Poem)->SQLPoem {
         return SQLPoem {
             id: 0,
-            title: self.title,
-            author: self.author,
-            lines: self.lines.join("\n"),
-            linecount: self.linecount.parse::<i32>().expect("should always be a parsable i32 here"),
+            title: p.title,
+            author: p.author,
+            lines: p.lines.join("\n"),
+            linecount: p.linecount.parse::<i32>().expect("should always be a parsable i32 here"),
             created_at: get_time()
         }
     }
 } 
-impl Into<Poem> for SQLPoem {
-    fn into(self: Self) -> Poem {
+impl From<SQLPoem> for Poem {
+    fn from(s: SQLPoem) -> Poem {
         // let ln_vec: Vec<String> = Vec::new();
-        let lns: Vec<String> = self.lines.split("\n").map(|x|x.to_string()).collect();
+        let lns: Vec<String> = s.lines.split("\n").map(|x|x.to_string()).collect();
         let lc = lns.len().to_string();
         return Poem {
-            title: self.title,
-            author: self.author,
+            title: s.title,
+            author: s.author,
             lines: lns,
             linecount: lc
         }
@@ -112,7 +119,7 @@ pub fn insert_poem(conn: &Connection, poem: Poem) -> Result<()> {
 //     return stmt;
 // }
 impl SQLPoem {
-    fn map(row: &Row) -> Result<SQLPoem> {
+    pub fn map(row: &Row) -> Result<SQLPoem> {
         Ok(SQLPoem {
             id: row.get(0).unwrap(),
             title: row.get::<_,String>(1)?,
@@ -122,6 +129,27 @@ impl SQLPoem {
             created_at: row.get::<_,Timespec>(5)?
         })
     }
+}
+impl Poem {
+    pub fn map(row: &Row) -> Result<Poem> {
+        Ok(Poem{
+            title: row.get::<_,String>(1)?,
+            author: row.get::<_,String>(2)?,
+            lines: row.get::<_,String>(3)?.split("\n").map(
+                |x| x.to_string()
+            ).collect(),
+            linecount: row.get::<_,i32>(4)?.to_string()
+        })
+    }
+}
+pub fn sz(conn: &Connection) -> Result<Vec<SQLPoem>> {
+    let mut stmt = conn.prepare("SELECT * FROM poems ORDER BY id DESC LIMIT 1")?;
+    let row = stmt.query_map(params![], SQLPoem::map)?;
+    row.collect()
+}
+pub fn execute(conn: &Connection, stmt: &mut Statement) -> Result<Vec<Poem>> {
+    let res = stmt.query_map(params![], Poem::map)?;
+    res.collect()
 }
 pub fn dump(conn: &Connection) -> Result<Vec<SQLPoem>> {
     let mut stmt = conn.prepare("SELECT id, title, author, lines, linecount, created_at FROM poems WHERE author LIKE 'Emily Dickinson'")?;
@@ -134,10 +162,41 @@ pub enum PoemQueryArgs {
     Author(String),
     Lines(String),
     LineCount(String),
-    CreatedAt(Timespec)
+    CreatedAt(Timespec),
 }
-pub fn build_query<'conn>(conn: &Connection, args: Vec<PoemQueryArgs>) -> Result<Statement> {
-    
-    let mut stmt = conn.prepare("SELECT id, title, author, lines, linecount, created_at FROM poems");
-    stmt
+impl PoemQueryArgs {
+    pub fn get_string(self: Self) -> String {
+        match self {
+            PoemQueryArgs::Id(s) => {format!("id = '{}'", s)},
+            PoemQueryArgs::Title(t) => {format!("title LIKE '{}'", t)},
+            PoemQueryArgs::Author(a) => {format!("author LIKE '{}'",a)},
+            PoemQueryArgs::Lines(l) => {format!("lines LIKE '{}'", l)},
+            PoemQueryArgs::LineCount(lc) => {format!("linecount LIKE '%{}%'",lc)},
+            PoemQueryArgs::CreatedAt(ts) => {format!("created_at LIKE '%{}%'", time::at(ts).strftime("%c").unwrap().to_string())}
+        }
+    }
+}
+
+pub fn build_query<'conn>(conn: &Connection, opts: QueryOptsAndArgs) -> Result<Statement> {
+    let mut stmt_str = format!("SELECT id, title, author, lines, linecount, created_at FROM poems");
+    let original_authors_only = format!("id < 3058");    
+    let mut s_args: Vec<_> = Vec::new();
+    for arg in opts.args.into_iter() {
+        s_args.push(arg.get_string());
+    }
+    let any = |x: bool|-> String {
+        if x == true {
+            " OR ".to_string()
+        } else {
+            " AND ".to_string()
+        }
+    };
+    let mut c_args = String::new();
+    if s_args.len() > 0 {
+        c_args = format!("{} WHERE {};", stmt_str, s_args.join(&any(opts.any)));
+    } else {
+        c_args = stmt_str;
+    }
+    let mut stmt = conn.prepare(&c_args)?;
+    Ok(stmt)
 }
