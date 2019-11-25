@@ -20,56 +20,15 @@ use iron::method::Method;
 use iron::mime::Mime;
 use router::Router;
 use gen::*;
-use db::{Poem, SQLPoem, insert_poem, get_conn,  dump, sz, execute, build_query, PoemQueryArgs, QueryOptsAndArgs};
+use db::{Poem, SQLPoem, insert_poem, get_conn,  dump, sz, execute, build_query, PoemQueryArgs, QueryOptsAndArgs, make_v_table};
 use iron_cors::CorsMiddleware;
-struct SearchHandler {}
-impl Handler for SearchHandler {
-    fn handle(&self, req:&mut Request)->IronResult<Response> {
-    //READ THE RESPONSE (PARSE request data into JSONQuery, then convert from JSONQuery into PQ before feeding to DB and returning response/seeding lines)
-   
-        let content_type = "application/json".parse::<Mime>().unwrap();
-        let mut payload = String::new();
-        req.body.read_to_string(&mut payload).unwrap();
-        let json: JSONQuery = serde_json::from_str(&payload).expect("should always be valid JSON");
-        println!("got a valid JSONQuery! Now collect these into Vec<PoemQueryArgs>! \nauthor strings: {}\ntitle strings: {}\nline strings: {}", &json.authors.join("\n"),&json.titles.join("\n"), &json.lines.join("\n") );
-        let poem_query_args: QueryOptsAndArgs = QueryOptsAndArgs::from(json);
-        let poems = handle_select(poem_query_args).expect("should always get some poems back");
-        payload.push_str("\n");
-        let mut p_vec: Vec<Poem> = Vec::new();
-        for poem in poems.into_iter() {
-            p_vec.push(poem);
-        }
-        let str_val: String = serde_json::to_string(&p_vec).expect("shouldn't ever fail!");
-        let mut r = Response::with((content_type, status::Ok, str_val));
-        r.headers = Headers::new();
-        r.headers.set(headers::AccessControlAllowMethods(vec![Method::Post]));
-        r.headers.set(headers::AccessControlAllowOrigin::Any);
 
-        // r.headers = iron::headers::Headers::new();
-        // r.headers.set(iron::headers::AccessControlAllowOrigin::Any);
-        // r.headers.set(content_type);
-        Ok(r)
-    }
-    
-}
-fn TEST_ARGS() -> Vec<PoemQueryArgs> { vec!(PoemQueryArgs::Id(12), PoemQueryArgs::Author("Emily Dickinson".to_string()), PoemQueryArgs::Title("I Saw".to_string()))}
-#[derive(Serialize, Deserialize, Debug)]
-struct AuthorsList {
-    authors: Vec<String>
-}
-#[derive(Serialize, Deserialize, Debug)]
-struct Poems(Vec<Poem>);
-pub fn build_chain()->iron::Chain {
-    let search_h = SearchHandler {};
-    let gen_h = GenHandler {};
-    let mut router  = router::Router::new();
-    router.get("/", hello, "hello");
-    router.post("/search", search_h, "search_h");
-    router.post("/generate", gen_h, "gen_h");
-    iron::Chain::new(router)
-}
 use rusqlite::Error as DbError;
 fn main()->Result<()> {
+    let p = PathBuf::from(&db_path);
+    let conn = get_conn(&p)?;
+    make_v_table(&conn);
+    
     //     let mut ch = markov::Chain::of_order(1);
     // ch.feed_str("I like cats and I like dogs.");
     // for line in ch.iter_for(5) {
@@ -87,8 +46,7 @@ fn main()->Result<()> {
     // let client = ClientBuilder::new();
     // let e_d = "Emily Dickinson".to_string();
     // let init_url = build_req(None, None);
-    let p = PathBuf::from(&db_path);
-    let conn = get_conn(&p)?;
+
     // // let poem = insert_poem(conn, test_poem());
     // let req = reqwest::get(&init_url).expect("should have gotten something").text().unwrap();
     // println!("request text: {}", req);
@@ -217,3 +175,49 @@ fn test_poem() -> Poem {
             return v
         }
     }
+    struct SearchHandler {}
+impl Handler for SearchHandler {
+    fn handle(&self, req:&mut Request)->IronResult<Response> {
+    //READ THE RESPONSE (PARSE request data into JSONQuery, then convert from JSONQuery into PQ before feeding to DB and returning response/seeding lines)
+   
+        let content_type = "application/json".parse::<Mime>().unwrap();
+        let mut payload = String::new();
+        req.body.read_to_string(&mut payload).unwrap();
+        let json: JSONQuery = serde_json::from_str(&payload).expect("should always be valid JSON");
+        println!("got a valid JSONQuery! Now collect these into Vec<PoemQueryArgs>! \nauthor strings: {}\ntitle strings: {}\nline strings: {}", &json.authors.join("\n"),&json.titles.join("\n"), &json.lines.join("\n") );
+        let poem_query_args: QueryOptsAndArgs = QueryOptsAndArgs::from(json);
+        let poems = handle_select(poem_query_args).expect("should always get some poems back");
+        payload.push_str("\n");
+        let mut p_vec: Vec<Poem> = Vec::new();
+        for poem in poems.into_iter() {
+            p_vec.push(poem);
+        }
+        let str_val: String = serde_json::to_string(&p_vec).expect("shouldn't ever fail!");
+        let mut r = Response::with((content_type, status::Ok, str_val));
+        r.headers = Headers::new();
+        r.headers.set(headers::AccessControlAllowMethods(vec![Method::Post]));
+        r.headers.set(headers::AccessControlAllowOrigin::Any);
+
+        // r.headers = iron::headers::Headers::new();
+        // r.headers.set(iron::headers::AccessControlAllowOrigin::Any);
+        // r.headers.set(content_type);
+        Ok(r)
+    }
+    
+}
+fn TEST_ARGS() -> Vec<PoemQueryArgs> { vec!(PoemQueryArgs::Id(12), PoemQueryArgs::Author("Emily Dickinson".to_string()), PoemQueryArgs::Title("I Saw".to_string()))}
+#[derive(Serialize, Deserialize, Debug)]
+struct AuthorsList {
+    authors: Vec<String>
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct Poems(Vec<Poem>);
+pub fn build_chain()->iron::Chain {
+    let search_h = SearchHandler {};
+    let gen_h = GenHandler {};
+    let mut router  = router::Router::new();
+    router.get("/", hello, "hello");
+    router.post("/search", search_h, "search_h");
+    router.post("/generate", gen_h, "gen_h");
+    iron::Chain::new(router)
+}

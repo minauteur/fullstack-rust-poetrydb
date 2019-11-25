@@ -55,6 +55,7 @@
                 font-weight: 700;
                 cursor: pointer;
                 text-transform: uppercase;
+                transition: all .2s ease-out;
                 -webkit-transition: all .2s ease-out;
                 -moz-transition: all .2s ease-out;
             }
@@ -69,9 +70,14 @@
 
             .accordion .content {
                 padding: 0 10px;
-                overflow: hidden;
+                max-height: 1000px;
+                overflow-y: auto;
                 border: 1px solid #fff;
+                /* font-style: oblique; */
+                /* font: white; */
                 /* Make the border match the background so it fades in nicely */
+                transition: all .5s ease-out;
+
                 -webkit-transition: all .5s ease-out;
                 -moz-transition: all .5s ease-out;
             }
@@ -109,14 +115,21 @@
             }
 
             .vertical ul li .content {
-                height: 0px;
+                max-height: 0px;
+                color: transparent;
+                opacity: 0;
+                transition: all .5s ease-out;
+                -webkit-transition: all .5s ease-out;
+                -moz-transition: all .5s ease-out;
                 line-height: 0px;
                 border-top: 0;
             }
 
             .vertical [type=radio]:checked~label~.content,
             .vertical [type=checkbox]:checked~label~.content {
-                height:auto;
+                color:rgba(0, 0, 0, 0.5);
+                opacity: 1;
+                max-height:1000px;
                 line-height: 14px;
                 border: 1px solid #542437;
             }
@@ -184,7 +197,7 @@
             let q_string = JSON.stringify(queryArgs);
         console.log("values: "+ JSON.stringify(queryArgs));
         let xml = new XMLHttpRequest();
-        let url = "http://127.0.0.1:3000/search";
+        let url = "https://microwavemansion.com/search";
         xml.open("POST", url);
         xml.onload = function () {
         // Request finished. Do processing here.      
@@ -249,7 +262,7 @@
                 
 
             }
-            let url = "http://127.0.0.1:3000/generate";
+            let url = "https://microwavemansion.com/generate";
             let xhr = new XMLHttpRequest();
             xhr.open("POST", url);
             xhr.onload = function() {

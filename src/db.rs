@@ -74,7 +74,16 @@ pub fn get_conn(p: &Path) -> Result<(Connection)> {
     )?;
     Ok(conn)
 }
-
+pub fn make_v_table(conn: &Connection)->Result<(&Connection)> {
+    conn.execute(
+        "CREATE VIRTUAL TABLE PoemSearch USING fts4(id, title, author, lines, linecount, created_at)", 
+        params![],
+    )?;
+    conn.execute("INSERT INTO PoemSearch SELECT id, title, author, lines, linecount, created_at FROM poems",
+        params![],
+    )?;
+    Ok(conn)
+}
 pub fn insert_poem(conn: &Connection, poem: Poem) -> Result<()> {
     let prepared_poem: SQLPoem = poem.into();
     conn.execute(
@@ -168,17 +177,17 @@ impl PoemQueryArgs {
     pub fn get_string(self: Self) -> String {
         match self {
             PoemQueryArgs::Id(s) => {format!("id = '{}'", s)},
-            PoemQueryArgs::Title(t) => {format!("title LIKE '{}'", t)},
-            PoemQueryArgs::Author(a) => {format!("author LIKE '{}'",a)},
-            PoemQueryArgs::Lines(l) => {format!("lines LIKE '{}'", l)},
-            PoemQueryArgs::LineCount(lc) => {format!("linecount LIKE '%{}%'",lc)},
-            PoemQueryArgs::CreatedAt(ts) => {format!("created_at LIKE '%{}%'", time::at(ts).strftime("%c").unwrap().to_string())}
+            PoemQueryArgs::Title(t) => {format!("title MATCH '{}'", t)},
+            PoemQueryArgs::Author(a) => {format!("author MATCH '{}'",a)},
+            PoemQueryArgs::Lines(l) => {format!("lines MATCH '{}'", l)},
+            PoemQueryArgs::LineCount(lc) => {format!("linecount MATCH '{}'",lc)},
+            PoemQueryArgs::CreatedAt(ts) => {format!("created_at MATCH '{}'", time::at(ts).strftime("%c").unwrap().to_string())}
         }
     }
 }
 
 pub fn build_query<'conn>(conn: &Connection, opts: QueryOptsAndArgs) -> Result<Statement> {
-    let mut stmt_str = format!("SELECT id, title, author, lines, linecount, created_at FROM poems");
+    let mut stmt_str = format!("SELECT id, title, author, lines, linecount, created_at FROM PoemSearch");
     let original_authors_only = format!("id < 3058");    
     let mut s_args: Vec<_> = Vec::new();
     for arg in opts.args.into_iter() {

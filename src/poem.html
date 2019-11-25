@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+    <head>
+        <meta charset="utf-8">
+
+
+    </head>
+    <body>
+        <div id="results" class="accordion vertical">
+            <ul id="resultsList">
+
+            </ul>
+        </div> 
+        <script>
+        
+
+            function appendPoems(samplePoems) {
+                
+                for (i in samplePoems) {
+                    let res = document.getElementById("resultsList");
+                    let currentChildren = res.childNodes.length;
+                    let idx = JSON.parse(currentChildren);
+                    let poem = samplePoems[i];
+                    let li = document.createElement("li");
+                    let id_string = "listItem-"+idx;
+                    li.id = id_string;
+                    li.className = "poem";
+                    res.appendChild(li);
+                    let added_li = document.getElementById(id_string);
+                    let checkBox = document.createElement("input");
+                    checkBox.type = "checkbox";
+                    checkBox.id = "checkBox-"+idx;
+                    checkBox.name = "checkbox-accordion";
+                    added_li.appendChild(checkBox);
+                    let label = document.createElement("label");
+                    label.htmlFor = "checkBox-"+idx;
+                    label.innerHTML = poem["title"];
+                    added_li.appendChild(label);
+                    let content = document.createElement("div");
+                    content.className = "content";
+                    let h4 = document.createElement("h4");
+                    h4.textContent = poem["author"];
+                    content.appendChild(h4);
+                    let l = document.createElement("p");
+                    let line_vec = [];
+                    let lines = poem["lines"];
+                    for (ln in lines) {
+                        line_vec.push(lines[ln]);
+                    }
+                    let lines_with_br = line_vec.join("<br>");
+                    l.innerHTML = lines_with_br;
+                    content.appendChild(l);
+                    added_li.appendChild(content);
+
+                }
+            }
+
+        </script>
+    </body>
+</!DOCTYPE>
